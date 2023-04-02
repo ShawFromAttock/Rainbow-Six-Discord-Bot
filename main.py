@@ -1,6 +1,8 @@
 import discord
 import random
+import os
 from discord.ext import commands
+from dotenv import load_dotenv
 
 intents = discord.Intents.default()
 intents.message_content = True
@@ -8,9 +10,10 @@ intents.members = True
 bot = commands.Bot(command_prefix='!', intents=intents)
 queue_mentions = []
 queue_names = []
+queue_id = []
 used_match_numbers = []
 server = ''
-max_players = 10
+max_players = 2
 half_players = int(max_players / 2)
 global match_number
 global host_member
@@ -32,6 +35,8 @@ map_pool = {
     'Theme Park': "https://liquipedia.net/commons/images/thumb/1/10/R6S_map_theme_park.jpg/534px-R6S_map_theme_park.jpg",
     'Villa': "https://liquipedia.net/commons/images/thumb/4/4d/R6S_map_villa.jpg/534px-R6S_map_villa.jpg"
 }
+
+load_dotenv()
 
 
 def in_allowed_channel(ctx):
@@ -87,12 +92,13 @@ async def on_raw_reaction_remove(payload):
 
 
 @bot.command()
-async def j(ctx):
+async def joinq(ctx):
     if ctx.channel.id != allowed_channel_id:
         print("error handled")
     else:
         player_mention = ctx.author.mention
         player_name = ctx.author.name
+        player_id = ctx.author.id
         for role in ctx.author.roles:
             if role.name.startswith('Team'):
                 await ctx.send(f"{ctx.author.mention} you are already in a match.")
@@ -101,13 +107,18 @@ async def j(ctx):
             await ctx.send(f'{player_mention} you are already in queue')
 
         else:
-            await ctx.send(f'{player_mention} has joined the queue')
+            await ctx.send(f'{player_mention} has joined the queue. \n{int(len(queue_mentions)) + 1}/10')
             queue_mentions.append(player_mention)
             queue_names.append(player_name)
+            queue_id.append(player_id)
             queue_length = len(queue_mentions)
             if queue_length == max_players:
                 t1, t2 = await split(ctx)
                 await assign_role_to_team1(ctx, t1, t2)
+                for player in queue_id:
+                    member = ctx.guild.get_member(player)
+                    await member.send(
+                        "Your match has started! Please join your VCs and ask the host to invite you. Happy Gaming!!")
                 queue_mentions.clear()
                 queue_names.clear()
 
@@ -119,6 +130,8 @@ async def split(ctx):
     host = random.choice(queue_mentions)
     global host_member
     host_member = ctx.guild.get_member(int(host[2:-1]))
+    await host_member.send(
+        "You are the host. You will have to use the conclude command once the match has finished!")
     host_role = discord.utils.get(ctx.guild.roles, name='Match Host')
     await host_member.add_roles(host_role)
     selected_map = random.choice(list(map_pool))
@@ -129,9 +142,9 @@ async def split(ctx):
                     inline=False)
     embed.add_field(name="Host:", value=host,
                     inline=False)
-    embed.add_field(name="Team 1:", value='\n'.join(team1),
+    embed.add_field(name="Team 1(Attack):", value='\n'.join(team1),
                     inline=True)
-    embed.add_field(name="Team 2:", value='\n'.join(team2),
+    embed.add_field(name="Team 2(Defend):", value='\n'.join(team2),
                     inline=True)
     embed.set_author(name="Fabian.G2",
                      icon_url="https://cdn.shopify.com/s/files/1/0548/8554/8183/files/2022-10-04-Staff_R6_Fabian.jpg?v=1664894229")
@@ -164,7 +177,7 @@ async def assign_role_to_team1(ctx, t1, t2):
 
 
 @bot.command()
-async def leave_queue(ctx):
+async def leaveq(ctx):
     if ctx.channel.id != allowed_channel_id:
         print("error handled")
     else:
@@ -179,7 +192,7 @@ async def leave_queue(ctx):
 
 
 @bot.command()
-async def show_queue(ctx):
+async def showq(ctx):
     if ctx.channel.id != allowed_channel_id:
         print("error handled")
     else:
@@ -229,7 +242,7 @@ async def on_command_error(ctx, error):
     if isinstance(error, commands.CheckFailure):
         pass
     else:
-        await ctx.send(f'An error occurred: {str(error)}')
+        pass
 
 
-bot.run('MTA4ODg1MjE0NjYwMDAzNDM3NA.GoZ1nv.PCYFLudXmPbrRku0lSINAoGDerFpE_VkNpWK34')
+bot.run(os.getenv('BOTTOKEN'))
